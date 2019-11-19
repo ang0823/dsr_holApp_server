@@ -1,65 +1,68 @@
 const express = require('express');
 // Crea un objeto que permite definir URL's del servidor
 const router = express.Router();
-
+var verifyToken = require('../controllers/verifyToken')
 const mysqlConnection = require('../database');
 
-// Sirve para agregar un nueva fotografía en la base de datos.
-// Se deben enviar todos los nuevos datos de la fotografía en el archivo JSON.
-// Datos: titulo, ruta_imagen
-router.post('/fotografia', (req, res) => {
-    console.log(req.body);
+/**
+ * Sirve para agregar una nueva fotografía en la base de datos.
+ * @params req: título de la fotografía y nombre de usuario en formato JSON
+ */
+router.post('/upload', verifyToken, (req, res) => {
+    const selectQuery = 'SELECT idcuenta FROM cuenta WHERE username = ?'
+    const insertQuery = 'INSERT INTO fotografia SET ?'
 
-    if (mysqlConnection) {
+    try {
         // Se busca el id del usuario que sube la fotografía
-        mysqlConnection.query(`
-        SELECT idcuenta
-        FROM cuenta
-        WHERE username = ?`, req.body.username, (err, result) => {
+        mysqlConnection.query(selectQuery, req.body.username, (err, result) => {
             if (!err) {
-                // Se definen los datos que se van a insertar en la base de datos
-                const picture = {
-                    titulo: req.body.title,
-                    ubicacion: req.body.ubicacion,
-                    cuenta_idcuenta: result[0].idcuenta
-                }
-
+                clientId = result[0].idcuenta
                 // Se realiza la inserción a BD
-                mysqlConnection.query(`INSERT INTO fotografia SET ?`, picture, (err) => {
+                const data = {
+                    'titulo': req.body.titulo,
+                    'cuenta_idcuenta': clientId
+                }
+                mysqlConnection.query(insertQuery, data, (err) => {
                     if (!err) {
-                        console.log("Nueva fotografía almacenada")
                         res.json({
                             succes: "true",
                             data: "Picture saved"
                         })
+                        console.log("Nueva fotografía almacenada.")
                     } else {
-                        console.log(err)
                         res.json({
                             succes: "false",
-                            data: res
                         })
+                        console.log(err)
                     }
                 })
             } else {
                 res.json({
-                    succes: "false"
+                    succes: "false",
+                    info: "No username found"
                 })
             }
         })
-    } else {
-        console.log("No hay conexión con la base de datos.")
+    } catch (error) {
+        console.log("No hay conexión con BD.")
+        throw error
     }
 })
 
-// Sirve para eliminar una fotografía
-// Se debe especificar el TITULO de la fotografía en el archivo JSON
-router.delete('/fotografia', (req, res) => {
-    // Se elimina la fotografía de la base de datos
-    mysqlConnection.query('DELETE FROM fotografia WHERE titulo = ?', req.body.title, (err) => {
+/**
+ * Sirve para eliminar una fotografía
+ * @params req: {"titulo":""}
+ */
+router.delete('/remove', verifyToken, (req, res) => {
+    const selectQuery = 'SELECT id_fotografia FROM fotografia'
+    const query = 'DELETE FROM fotografia WHERE ?'
+
+    mysqlConnection.query(query, req.body, (err) => {
         if (!err) {
             console.log("Fotografía eliminada")
             res.json({
-                succes: "true"
+                succes: "true",
+                message: "Picture removed"
             })
         } else {
             console.log(err)
@@ -70,9 +73,35 @@ router.delete('/fotografia', (req, res) => {
     })
 })
 
-// Sirve para marcar una fotografía como favorita en la cuenta del cliente dado
-// Se debe enviar el titulo de la fotografía que se desea marca como favorita y 
-// el nombre de usuario de quien la envia en el archivo JSON
+/**
+ * Sirve para actualizar información de una fotografia
+ * @params req: {"":""}
+ */
+router.put('/updatePhoto', verifyToken, (req, res) => {
+    const query = 'UPDATE fotografia SET ?'
+
+    try {
+        mysqlConnection.query(query, req.body, (error) => {
+            if (!error) {
+                res.json({
+                    auth: true,
+                    message: "Data updated"
+                })
+            } else {
+                res.json({
+                    auth: true,
+                    message: "Couldn't update data"
+                })
+            }
+        })
+    } catch (error) {
+
+    }
+})
+
+/** Sirve para marcar una fotografía como favorita en la cuenta del cliente
++ @paramas req: {"titulo":"", "username":""}
+*/
 router.post('/favoritas', (req, res) => {
     var idclient;
     var idfoto;
@@ -96,7 +125,6 @@ router.post('/favoritas', (req, res) => {
                     mysqlConnection.query(`INSERT INTO favoritas SET ?`, info, (err) => {
                         console.log(info)
                         if (!err) {
-                            console.log(result)
                             res.json({
                                 succes: "true"
                             })

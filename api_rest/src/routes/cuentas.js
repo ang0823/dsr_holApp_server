@@ -1,232 +1,197 @@
 const express = require('express');
 // Crea un objeto que permite definir URL's del servidor
 const router = express.Router();
-
 const mysqlConnection = require('../database');
+//Archivo en donde se encuentra la palabra secreta par manejar tokens
+const config = require('../config')
+const jwt = require('jsonwebtoken')
+// Archivo con funcion de vificacion de tokens
+const verifyToken = require('../controllers/verifyToken')
+// Tiempo en segundos en que es validos el token
+const seconds = 86400
 
-// Sirve para registrar un nuevo cliente
-// Se debe enviar todos los datos para la nueva cuenta en el archivo JSON
-// Datos: nombre, apellido_p, apellido_m, usernanme, password y state
-router.post('/cuenta', (req, res) => {
-    var client = {
-        nombre: req.body.nombre,
-        apellido_p: req.body.apellido_p,
-        apellido_m: req.body.apellido_m,
-        username: req.body.username,
-        password: req.body.password,
-        state: "1"
-    }
-
-    if (mysqlConnection) {
-        mysqlConnection.query('INSERT INTO cuenta SET ?', client, (err, result) => {
-            if (!err) {
-                res.json({ 
-                    Status: 'Datos guardados',
-                    data: result.body
-                });
+router.post('/signin', verifyToken, (req, res) => {
+    const query = 'SELECT password FROM cuenta WHERE username = ?'
+    const sentPassword = req.body.password
+    try {
+        mysqlConnection.query(query, req.username, (error, result) => {
+            console.log(result[0].password + " == " + req.body.password)
+            const realPassword = result[0].password
+            if (realPassword == sentPassword) {
+                res.json({
+                    auth: true,
+                    message: "Welcome back"
+                })
             } else {
-                res.json({ Status: 'false' });
-                console.log(err);
+                res.json({
+                    auth: false,
+                    message: "Username or password incorrect"
+                })
             }
+        })
+    } catch (error) {
+        res.json({
+            auth: false,
+            message: error.message
+        })
+    }
+})
+
+/**
+ * Regresa toda la información de la cuenta con sesión iniciada
+ * @params req: {"username": ""}
+ */
+router.get('/', verifyToken, (req, res) => {
+    const query = "SELECT nombre, apellido_p, apellido_m, username FROM cuenta WHERE username = ?"
+    try {
+        mysqlConnection.query(query, req.username, (err, result) => {
+            if (result) {
+                return res.status(200).json({
+                    result
+                })
+            } else {
+                console.log(req.headers['Ya se ejecutó middleware'])
+                return res.status(404).json({
+                    auth: false,
+                    message: "User not found"
+                })
+            }
+        })
+    } catch (error) {
+        res.status(500).json({
+            error: '500',
+            message: 'Could not retrieve data'
+        })
+    }
+})
+
+
+/** 
+ * Sirve para registrar un nuevo cliente
+ * @args req = {"nombre":"", "apellido_p":"", "apellido_m":"", "username":"", "password":""}
+ */
+router.post('/signup', (req, res) => {
+    var query = 'INSERT INTO cuenta SET ?'
+    try {
+        mysqlConnection.query(query, req.body, (err) => {
+            if (!err) {
+                // Se genera un token para este usuario
+                // con vigencia de 24 hrs
+                const token = jwt.sign({ username: req.body.username }, config.secret)
+                res.json({
+                    saved: "true",
+                    token
+                });
+                console.log('Se registró un nuevo cliente: ' + token)
+            } else {
+                res.json({
+                    saved: 'false',
+                    token: 'null'
+                });
+                console.log(err.message);
+            }
+        })
+    } catch (error) {
+        res.json({
+            saved: false,
+            message: "Could not save new client."
         })
     }
 });
 
-// Sirve para actualizar la conntraseña del cliente
-// Se debe enviar el USERNAME y la nueva contraseña en el archivo JSON
-router.put('/update/password', (req, res) => {
-    const userData = {
-        username: req.body.username,
-        password: req.body.password
+/**
+ * Actualiza la informacion del cliente segun los parametros
+ * Se deben enviar SOLO los datos a actualizar en archivo JSON
+ * @args req: campos a actualizar en formato JSON 
+ * @params Nombre de usuario
+ */
+router.put('/update', verifyToken, (req, res) => {
+    console.log("entering endpoind...")
+    const query = 'UPDATE cuenta SET ? WHERE username = ?'
+    try {
+        mysqlConnection.query(query, [req.body, req.username], (err, result) => {
+            if (result) {
+                res.status(200).json({
+                    auth: "true",
+                    imessage: "Client updated"
+                })
+                console.log('Se actualizó información de ' + req.username)
+            } else {
+                res.json({
+                    auth: "false",
+                    message: "Access denied"
+                })
+                console.log(err.message)
+            }
+        })
+    } catch (error) {
+        res.status(500).json({
+            auth: false,
+            message: "Update denied"
+        })
     }
-
-    mysqlConnection.query(`
-    UPDATE cuenta 
-    SET password = ?
-    WHERE username = ?`, [userData.password, userData.username], (err, rows) => {
-        if (!err) {
-            res.json({ 
-                success: 'true' 
-            });
-        } else {
-            console.log(err);
-            res.json(
-                {
-                    sent: userData,
-                    success: 'false'
-                }
-            );
-        }
-    })
 })
 
-// Sirve para actualizar el nombre del cliente
-// Se debe enviar el USERNAME y el nuevo nombre en el archivo JSON
-router.put('/update/name', (req, res) => {
-    const newName = {
-        username: req.body.username,
-        name: req.body.name
+/**
+ * Elmina de la base de datos el usuario indicado.
+ * Se debe enviar el nombre de usuario en los parametros
+ * @args req.header: {"x-access-token":""}
+ */
+router.delete('/delete', verifyToken, (req, res) => {
+    var query = 'DELETE FROM cuenta WHERE username = ?'
+    try {
+        mysqlConnection.query(query, req.username, (err, result) => {
+            if (result.affectedRows > 0) {
+                res.json({
+                    auth: "true",
+                    message: "Client deleted"
+                })
+                console.log("Se eliminó un cliente")
+            } else {
+                res.json({
+                    auth: true,
+                    message: "Unknown user"
+                })
+                console.log("Intento fallido: DELETE")
+            }
+        })
+    } catch (error) {
+        res.json({
+            auth: false,
+            message: err.message
+        })
     }
-
-    console.log(newName);
-    
-    mysqlConnection.query(`
-    UPDATE cuenta
-    SET nombre = ?
-    WHERE username = ?`, [newName.name, newName.username], (err, rows) => {
-        console.log(err);
-        if(!err) {
-            res.json({
-                success: "true",
-                data: req.body
-            })
-        } else {
-            res.json({
-                success: "false"
-            })
-        }
-    })
 })
 
-// Sirve para actualizar el apellido paterno del cliente
-// Se debe enviar el USERNAME y el nuevo apellido en el archivo JSON
-router.put('/update/apellidop', (req, res) => {
-    const newLastname = {
-        username: req.body.username,
-        apellido_p: req.body.apellido_p
-    }
+/**
+ * Regresa la información del amigo o amigos que se encontraron
+ * según la información que se envie
+ * @params req: {"":""}
+ */
+router.get('/findfriend', (req, res) => {
+    const query = 'SELECT nombre, apellido_p, apellido_m FROM cuenta WHERE ?'
 
-    console.log(newName);
-    
-    mysqlConnection.query(`
-    UPDATE cuenta
-    SET apellido_p = ?
-    WHERE username = ?`, [newLastname.apellido_p, newLastname.username], (err, rows) => {
-        console.log(err);
-        if(!err) {
-            res.json({
-                success: "true",
-                data: req.body
-            })
-        } else {
-            res.json({
-                success: "false"
-            })
-        }
-    })
+    try {
+        mysqlConnection.query(query, req.body, (error, result) => {
+            console.log('Se buscó amigo ')
+            if(result.length > 0) {
+                res.json({
+                    succes: true,
+                    result
+                })
+            } else {
+                res.json({
+                    succes: false,
+                    message: "No matches found"
+                })
+            }
+        })
+    } catch (error) {
+        res.json({
+            success: false,
+            message: err.message
+        })
+    }
 })
 
-// Sirve para actualizar el apellido materno del cliente
-// Se debe enviar el USERNAME y el nuevo apellido en el archivo JSON
-router.put('/update/apellidom', (req, res) => {
-    const newLastname = {
-        username: req.body.username,
-        apellido_m: req.body.apellido_m
-    }
-
-    console.log(newLastname);
-    
-    mysqlConnection.query(`
-    UPDATE cuenta
-    SET apellido_m = ?
-    WHERE username = ?`, [newLastname.apellido_m, newLastname.username], (err, rows) => {
-        console.log(err);
-        if(!err) {
-            res.json({
-                success: "true",
-                data: req.body
-            })
-        } else {
-            res.json({
-                success: "false"
-            })
-        }
-    })
-})
-
-// Sirve para actualizar ambos apellidos del cliente
-// Se debe enviar el USERNAME y los nuevos apellidos en el archivo JSON
-router.put('/update/apellidos', (req, res) => {
-    const newLastname = {
-        username: req.body.username,
-        apellido_p: req.body.apellido_p,
-        apellido_m: req.body.apellido_m
-    }
-
-    console.log(newLastname);
-    
-    mysqlConnection.query(`
-    UPDATE cuenta
-    SET apellido_p = ?, apellido_m = ?
-    WHERE username = ?`, [newLastname.apellido_p, newLastname.apellido_m, newLastname.username], (err, rows) => {
-        console.log(err);
-        if(!err) {
-            res.json({
-                success: "true",
-                data: req.body
-            })
-        } else {
-            res.json({
-                success: "false"
-            })
-        }
-    })
-})
-
-// Sirve para actualizar el nombre completo del cliente
-// Se debe enviar el USERNAME y el nuevo nombre y apellidos en el archivo JSON
-router.put('/update', (req, res) => {
-    const newName = {
-        username: req.body.username,
-        nombre: req.body.nombre,
-        apellido_p: req.body.apellido_p,
-        apellido_m: req.body.apellido_m
-    }
-
-    console.log(newName);
-    
-    mysqlConnection.query(`
-    UPDATE cuenta
-    SET nombre = ?, apellido_p = ?, apellido_m = ?
-    WHERE username = ?`, [newName.nombre, newName.apellido_p, 
-        newName.apellido_m, newName.username], (err, rows) => {
-        console.log(err);
-        if(!err) {
-            res.json({
-                success: "true",
-                data: req.body
-            })
-        } else {
-            res.json({
-                success: "false"
-            })
-        }
-    })
-})
-
-// Sirve para cambiar el estado del cliente. Conectado: 1, Desconectado: 0
-// Se debe enviar el USERNAME y el estado en el archivo JSON
-router.put('/status', (req, res) => {
-    const state = {
-        username: req.body.username,
-        state: req.body.state
-    }
-
-    mysqlConnection.query(`
-    UPDATE cuenta
-    SET state = ?
-    WHERE username = ?`, [state.state, state.username], (err, rows) => {
-        if(!err) {
-            res.json({
-                success: "true",
-                data: "State updated"
-            })
-        } else {
-            res.json({
-                success: "false"
-            })
-        }
-    })
-})
-
-module.exports = router;
+module.exports = router
