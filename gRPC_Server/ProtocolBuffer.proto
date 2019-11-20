@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+service Messages {
+    //  Metodo que sirve para crear la conexion 
+    rpc conversar (stream getComunicationRequest) returns (stream getComunicationResponse);
+  //  rpc reenviar (stream getC)
+    rpc editar (stream getEditTextRequest) returns (stream getEditTextResponse);
+    rpc eliminar(stream getDeletRequest) returns (stream getDeletResponse);
+
+}
+
+message getComunicationRequest{
+    string username = 1;
+    oneof content{
+        string texto = 2;
+        bytes audio = 3;
+        bytes imagen = 4;
+    }
+
+}
+
+message getComunicationResponse{
+    string username = 1;
+    oneof content {
+        string texto = 2;
+        bytes audio = 3;
+        bytes imagen = 4;
+    }
+
+}
+message getEditTextRequest {
+  //  string username = 1;
+    string texto = 1;
+}
+
+message getEditTextResponse{
+    //  string username = 1;
+    string texto = 1;
+}
+
+message getDeletRequest{
+   // string username = 1; lo dejo asi para preguntar al maestro
+    oneof content {
+        string texto = 2;
+        bytes audio = 3;
+        bytes imagen = 4;
+    }
+}
+message getDeletResponse{
+    // vacia porque
+}
+
