@@ -1,4 +1,4 @@
-const express = require('express');
+                                                                                                                                                                                                                                                                                                                                const express = require('express');
 // Crea un objeto que permite definir URL's del servidor
 const router = express.Router();
 const mysqlConnection = require('../database');
@@ -39,21 +39,24 @@ router.post('/signin', verifyToken, (req, res) => {
 
 /**
  * Regresa toda la información de la cuenta con sesión iniciada
- * @params req: {"username": ""}
+ * @params req: header = username
  */
-router.get('/', verifyToken, (req, res) => {
+router.get('/:username', (req, res) => {
+    console.log("Se busca al usuario: " + req.params.username)
     const query = "SELECT nombre, apellido_p, apellido_m, username FROM cuenta WHERE username = ?"
     try {
-        mysqlConnection.query(query, req.username, (err, result) => {
-            if (result) {
+        mysqlConnection.query(query, req.params.username, (err, result) => {
+            if (result.length > 0) {
+                console.log("Se recibió petición y regresó: " + result)
                 return res.status(200).json({
-                    result
+                    success: true,
+                    cliente: result
                 })
             } else {
-                console.log(req.headers['Ya se ejecutó middleware'])
-                return res.status(404).json({
-                    auth: false,
-                    message: "User not found"
+                console.log("Se recibió solicitud")
+                return res.status(203).json({
+                    success: false,
+                    cliente: "User not found"
                 })
             }
         })
@@ -71,12 +74,12 @@ router.get('/', verifyToken, (req, res) => {
  * @args req = {"nombre":"", "apellido_p":"", "apellido_m":"", "username":"", "password":""}
  */
 router.post('/signup', (req, res) => {
+    conspole.log("Solicitud de registro: " + req.body)
     var query = 'INSERT INTO cuenta SET ?'
     try {
         mysqlConnection.query(query, req.body, (err) => {
             if (!err) {
                 // Se genera un token para este usuario
-                // con vigencia de 24 hrs
                 const token = jwt.sign({ username: req.body.username }, config.secret)
                 res.json({
                     saved: "true",
