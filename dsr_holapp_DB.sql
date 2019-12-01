@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS `dsr_holapp`.`cuenta` (
   `apellido_p` VARCHAR(100) NOT NULL,
   `apellido_m` VARCHAR(100) NOT NULL,
   `username` VARCHAR(25) NOT NULL,
-  `password` VARCHAR(45) NOT NULL,
-  `status` BINARY(1) NOT NULL DEFAULT '1',
+  `password` VARCHAR(30) NOT NULL,
+  `status` VARCHAR(100) NOT NULL DEFAULT 'Disponible',
   `esModerador` BINARY(1) NULL DEFAULT NULL,
   PRIMARY KEY (`idcuenta`),
   UNIQUE INDEX `idcuenta_UNIQUE` (`idcuenta` ASC),
@@ -48,12 +48,12 @@ CREATE TABLE IF NOT EXISTS `dsr_holapp`.`amigos` (
   CONSTRAINT `amigo`
     FOREIGN KEY (`idcuenta_amigo`)
     REFERENCES `dsr_holapp`.`cuenta` (`idcuenta`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `propietario`
     FOREIGN KEY (`idcuenta_propietario`)
     REFERENCES `dsr_holapp`.`cuenta` (`idcuenta`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = latin1;
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS `dsr_holapp`.`chat` (
   CONSTRAINT `fk_chat_cuenta1`
     FOREIGN KEY (`cuenta_idcuenta`)
     REFERENCES `dsr_holapp`.`cuenta` (`idcuenta`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
@@ -84,7 +84,7 @@ DEFAULT CHARACTER SET = utf8;
 CREATE TABLE IF NOT EXISTS `dsr_holapp`.`fotografia` (
   `id_fotografia` INT(11) NOT NULL AUTO_INCREMENT,
   `titulo` VARCHAR(45) NULL DEFAULT NULL,
-  `ubicacion` VARCHAR(100) NOT NULL,
+  `ubicacion` VARCHAR(20) NOT NULL,
   `aprobada` BINARY(1) NOT NULL DEFAULT '0',
   `cuenta_idcuenta` INT(11) NOT NULL,
   PRIMARY KEY (`id_fotografia`, `cuenta_idcuenta`),
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS `dsr_holapp`.`fotografia` (
   CONSTRAINT `fk_fotografia_cuenta1`
     FOREIGN KEY (`cuenta_idcuenta`)
     REFERENCES `dsr_holapp`.`cuenta` (`idcuenta`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 AUTO_INCREMENT = 11
@@ -105,8 +105,8 @@ DEFAULT CHARACTER SET = utf8;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `dsr_holapp`.`comentario` (
   `idcomentario` INT(11) NOT NULL AUTO_INCREMENT,
-  `fecha` DATE NOT NULL,
-  `hora` TIME NULL DEFAULT NULL,
+  `contenido` VARCHAR(500),
+  `fecha_hora` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `fotografia_id_fotografia` INT(11) NOT NULL,
   PRIMARY KEY (`idcomentario`, `fotografia_id_fotografia`),
   UNIQUE INDEX `idcomentario_UNIQUE` (`idcomentario` ASC),
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS `dsr_holapp`.`comentario` (
   CONSTRAINT `fk_comentario_fotografia`
     FOREIGN KEY (`fotografia_id_fotografia`)
     REFERENCES `dsr_holapp`.`fotografia` (`id_fotografia`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
@@ -133,12 +133,12 @@ CREATE TABLE IF NOT EXISTS `dsr_holapp`.`favoritas` (
   CONSTRAINT `cuenta_id`
     FOREIGN KEY (`cuenta_id`)
     REFERENCES `dsr_holapp`.`cuenta` (`idcuenta`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fotografia_id`
     FOREIGN KEY (`fotografia_id`)
     REFERENCES `dsr_holapp`.`fotografia` (`id_fotografia`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 AUTO_INCREMENT = 2
@@ -150,8 +150,7 @@ DEFAULT CHARACTER SET = latin1;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `dsr_holapp`.`mensaje` (
   `idmensaje` INT(11) NOT NULL,
-  `fecha` DATE NOT NULL,
-  `hora` TIME NOT NULL,
+  `fecha_hora` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `contenido` VARCHAR(1000) NOT NULL,
   `chat_idchat` INT(11) NOT NULL,
   `chat_cuenta_idcuenta` INT(11) NOT NULL,
@@ -160,16 +159,16 @@ CREATE TABLE IF NOT EXISTS `dsr_holapp`.`mensaje` (
   CONSTRAINT `fk_mensaje_chat1`
     FOREIGN KEY (`chat_idchat` , `chat_cuenta_idcuenta`)
     REFERENCES `dsr_holapp`.`chat` (`idchat` , `cuenta_idcuenta`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
 
 
 -- -----------------------------------------------------
--- Table `dsr_holapp`.`reaciones`
+-- Table `dsr_holapp`.`reacciones`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `dsr_holapp`.`reaciones` (
+CREATE TABLE IF NOT EXISTS `dsr_holapp`.`reacciones` (
   `id_reacion` INT NOT NULL AUTO_INCREMENT,
   `reaccion` VARCHAR(15) NULL DEFAULT NULL,
   PRIMARY KEY (`id_reacion`),
@@ -189,12 +188,12 @@ CREATE TABLE IF NOT EXISTS `dsr_holapp`.`fotografia_has_reaciones` (
   CONSTRAINT `fk_fotografia_has_reaciones_fotografia1`
     FOREIGN KEY (`fotografia_id_fotografia`)
     REFERENCES `dsr_holapp`.`fotografia` (`id_fotografia`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_fotografia_has_reaciones_reaciones1`
     FOREIGN KEY (`reaciones_id_reacion`)
     REFERENCES `dsr_holapp`.`reaciones` (`id_reacion`)
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
