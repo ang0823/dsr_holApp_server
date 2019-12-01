@@ -1,4 +1,4 @@
-                                                                                                                                                                                                                                                                                                                                const express = require('express');
+const express = require('express');
 // Crea un objeto que permite definir URL's del servidor
 const router = express.Router();
 const mysqlConnection = require('../database');
@@ -18,19 +18,19 @@ router.post('/signin', verifyToken, (req, res) => {
             console.log(result[0].password + " == " + req.body.password)
             const realPassword = result[0].password
             if (realPassword == sentPassword) {
-                res.json({
+                res.status(200).json({
                     auth: true,
                     message: "Welcome back"
                 })
             } else {
-                res.json({
+                res.status(204).json({
                     auth: false,
-                    message: "Username or password incorrect"
+                    message: "Wrong credentials"
                 })
             }
         })
     } catch (error) {
-        res.json({
+        res.status(500).json({
             auth: false,
             message: error.message
         })
@@ -46,24 +46,27 @@ router.get('/:username', (req, res) => {
     const query = "SELECT nombre, apellido_p, apellido_m, username FROM cuenta WHERE username = ?"
     try {
         mysqlConnection.query(query, req.params.username, (err, result) => {
-            if (result.length > 0) {
-                console.log("Se recibió petición y regresó: " + result)
-                return res.status(200).json({
-                    success: true,
-                    cliente: result
+            if (result.length == 0) {
+                console.log("204: " + result.message)
+                return res.status(204).json({
+                    registered: false,
+                    result
                 })
-            } else {
-                console.log("Se recibió solicitud")
-                return res.status(203).json({
-                    success: false,
-                    cliente: "User not found"
+            } else if (result.length > 0) {
+                console.log("200: " + result)
+                return res.status(200).json({
+                    registered: true,
+                    result
                 })
             }
         })
     } catch (error) {
         res.status(500).json({
-            error: '500',
-            message: 'Could not retrieve data'
+            registered: false,
+            nombre: null,
+            apellido_P: null,
+            apellido_m: null,
+            username: null
         })
     }
 })
@@ -74,27 +77,39 @@ router.get('/:username', (req, res) => {
  * @args req = {"nombre":"", "apellido_p":"", "apellido_m":"", "username":"", "password":""}
  */
 router.post('/signup', (req, res) => {
-    conspole.log("Solicitud de registro: " + req.body)
     var query = 'INSERT INTO cuenta SET ?'
+    var insert_values = {
+        "apellido_p":req.body.apellido_p,
+        "apellido_m":req.body.apellido_m,
+        "username":req.body.username,
+        "password":req.body.password,
+        "nombre":req.body.nombre,   
+    }
     try {
-        mysqlConnection.query(query, req.body, (err) => {
-            if (!err) {
+        mysqlConnection.query(query, insert_values, (err, result) => {
+            if (result) {
+                console.log("Usuario " + req.body.username +" registrado");
                 // Se genera un token para este usuario
                 const token = jwt.sign({ username: req.body.username }, config.secret)
-                res.json({
-                    saved: "true",
+                res.status(200).json({
+                    saved: true,
                     token
                 });
-                console.log('Se registró un nuevo cliente: ' + token)
+                console.log('200: ' + token)
+            } else if(!result) {
+                res.status(204).json({
+                    saved: false,
+                    token: "No token provided"
+                })
             } else {
-                res.json({
-                    saved: 'false',
+                res.status(500).json({
+                    saved: false,
                     token: 'null'
                 });
-                console.log(err.message);
+                console.log("Error 500: " + err.message);
             }
         })
-    } catch (error) {
+    } catch (err) {
         res.json({
             saved: false,
             message: "Could not save new client."
@@ -169,15 +184,15 @@ router.delete('/delete', verifyToken, (req, res) => {
 /**
  * Regresa la información del amigo o amigos que se encontraron
  * según la información que se envie
- * @params req: {"":""}
+ * @params req: {"username":""}
  */
 router.get('/findfriend', (req, res) => {
-    const query = 'SELECT nombre, apellido_p, apellido_m FROM cuenta WHERE ?'
+    const query = 'SELECT nombre, apellido_p, apellido_m, username FROM cuenta WHERE username = ?'
 
     try {
         mysqlConnection.query(query, req.body, (error, result) => {
             console.log('Se buscó amigo ')
-            if(result.length > 0) {
+            if (result.length > 0) {
                 res.json({
                     succes: true,
                     result
