@@ -11,18 +11,39 @@ const verifyToken = require('../controllers/verifyToken')
 const seconds = 86400
 
 router.post('/signin', verifyToken, (req, res) => {
+    console.log("Intentando inicar sesión: " + req.username)
     const query = 'SELECT password FROM cuenta WHERE username = ?'
+    console.log(req.body)
+
+
     const sentPassword = req.body.password
     try {
         mysqlConnection.query(query, req.username, (error, result) => {
-            console.log(result[0].password + " == " + req.body.password)
-            const realPassword = result[0].password
-            if (realPassword == sentPassword) {
+            console.log(result.length)
+            if (result.length > 0){
+                var realPassword = result[0].password
+            }
+
+            if (result.length == 0) {
+                console.log("Entro al if")
+                res.status(204).json({
+                    auth: false,
+                    meesage: "No hay usuario registrado"
+                })
+            } else if (realPassword == sentPassword && req.headers['x-access-token'] == "") {
+                console.log("Asignando nuevo token")
+                // Se genera un token para este usuario
+                token = jwt.sign({ username: req.body.username }, config.secret)
+                res.status(201).json({
+                    auth: true,
+                    message: token
+                })
+            } else if (realPassword == sentPassword) {
                 res.status(200).json({
                     auth: true,
                     message: "Welcome back"
                 })
-            } else {
+            } else if (realPassword != sentPassword) {
                 res.status(204).json({
                     auth: false,
                     message: "Wrong credentials"
@@ -32,7 +53,7 @@ router.post('/signin', verifyToken, (req, res) => {
     } catch (error) {
         res.status(500).json({
             auth: false,
-            message: error.message
+            message: error
         })
     }
 })
@@ -79,32 +100,32 @@ router.get('/:username', (req, res) => {
 router.post('/signup', (req, res) => {
     var query = 'INSERT INTO cuenta SET ?'
     var insert_values = {
-        "apellido_p":req.body.apellido_p,
-        "apellido_m":req.body.apellido_m,
-        "username":req.body.username,
-        "password":req.body.password,
-        "nombre":req.body.nombre,   
+        "apellido_p": req.body.apellido_p,
+        "apellido_m": req.body.apellido_m,
+        "username": req.body.username,
+        "password": req.body.password,
+        "nombre": req.body.nombre,
     }
     try {
         mysqlConnection.query(query, insert_values, (err, result) => {
             if (result) {
-                console.log("Usuario " + req.body.username +" registrado");
-                // Se genera un token para este usuario
-                const token = jwt.sign({ username: req.body.username }, config.secret)
+                console.log("Usuario " + req.body.username + " registrado");
+                /* Se genera un token para este usuario
+                const token = jwt.sign({ username: req.body.username }, config.secret)*/
                 res.status(200).json({
                     saved: true,
-                    token
+                    message: "Guardado"
                 });
-                console.log('200: ' + token)
-            } else if(!result) {
+                console.log('200')
+            } else if (!result) {
                 res.status(204).json({
                     saved: false,
-                    token: "No token provided"
+                    message: "No guardado"
                 })
             } else {
                 res.status(500).json({
                     saved: false,
-                    token: 'null'
+                    message: "Error en el servidor"
                 });
                 console.log("Error 500: " + err.message);
             }
